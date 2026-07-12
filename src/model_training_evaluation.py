@@ -63,7 +63,10 @@ def preparar_datos():
     )
 
     return X_train, X_test, y_train, y_test
-def build_model(modelo: BaseEstimator) -> Pipeline:
+def build_model(
+    modelo: BaseEstimator,
+    columnas_excluir: list[str] | None = None,
+) -> Pipeline:
     """
     Construye un pipeline completo de preprocesamiento y modelado.
 
@@ -71,6 +74,10 @@ def build_model(modelo: BaseEstimator) -> Pipeline:
     ----------
     modelo : BaseEstimator
         Modelo supervisado compatible con la API de scikit-learn.
+
+    columnas_excluir : list[str] | None
+        Variables que no deben utilizarse durante el preprocesamiento
+        ni el entrenamiento del modelo.
 
     Returns
     -------
@@ -80,7 +87,12 @@ def build_model(modelo: BaseEstimator) -> Pipeline:
 
     pipeline_modelo = Pipeline(
         steps=[
-            ("preprocesador", crear_preprocesador()),
+            (
+                "preprocesador",
+                crear_preprocesador(
+                    columnas_excluir=columnas_excluir
+                ),
+            ),
             ("modelo", modelo),
         ]
     )
@@ -195,7 +207,7 @@ if __name__ == "__main__":
     print(matriz_base)
 
     regresion_logistica = build_model(
-        LogisticRegression(
+        modelo=LogisticRegression(
             class_weight="balanced",
             random_state=42,
             max_iter=1000,
@@ -216,3 +228,31 @@ if __name__ == "__main__":
 
     print("\nMatriz de confusión de Regresión Logística:")
     print(matriz_logistica)
+
+    regresion_logistica_sin_puntaje = build_model(
+        modelo=LogisticRegression(
+            class_weight="balanced",
+            random_state=42,
+            max_iter=1000,
+        ),
+        columnas_excluir=["puntaje"],
+    )
+
+    regresion_logistica_sin_puntaje.fit(X_train, y_train)
+
+    (
+        resumen_logistica_sin_puntaje,
+        matriz_logistica_sin_puntaje,
+        _,
+    ) = summarize_classification(
+        nombre_modelo="Regresión Logística sin puntaje",
+        modelo=regresion_logistica_sin_puntaje,
+        X_test=X_test,
+        y_test=y_test,
+    )
+
+    print("\nResultados de Regresión Logística sin puntaje:")
+    print(pd.Series(resumen_logistica_sin_puntaje))
+
+    print("\nMatriz de confusión sin puntaje:")
+    print(matriz_logistica_sin_puntaje)
