@@ -10,6 +10,12 @@ from pathlib import Path
 import pandas as pd
 
 from sklearn.base import BaseEstimator
+from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import (
+    GradientBoostingClassifier,
+    RandomForestClassifier,
+)
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -21,6 +27,7 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
+from sklearn.utils.class_weight import compute_sample_weight
 
 from cargar_datos import cargar_base, cargar_config
 from ft_engineering import (
@@ -29,12 +36,6 @@ from ft_engineering import (
     separar_features_target,
 )
 
-from sklearn.dummy import DummyClassifier
-
-from sklearn.linear_model import LogisticRegression
-
-from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.utils.class_weight import compute_sample_weight
 
 def preparar_datos():
     """
@@ -54,7 +55,7 @@ def preparar_datos():
 
     X, y = separar_features_target(
         df_transformado,
-        target=config["target"]
+        target=config["target"],
     )
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -62,10 +63,12 @@ def preparar_datos():
         y,
         test_size=config["test_size"],
         random_state=config["random_state"],
-        stratify=y
+        stratify=y,
     )
 
     return X_train, X_test, y_train, y_test
+
+
 def build_model(
     modelo: BaseEstimator,
     columnas_excluir: list[str] | None = None,
@@ -93,14 +96,19 @@ def build_model(
             (
                 "preprocesador",
                 crear_preprocesador(
-                    columnas_excluir=columnas_excluir
+                    columnas_excluir=columnas_excluir,
                 ),
             ),
-            ("modelo", modelo),
+            (
+                "modelo",
+                modelo,
+            ),
         ]
     )
 
     return pipeline_modelo
+
+
 def summarize_classification(
     nombre_modelo: str,
     modelo: Pipeline,
@@ -118,7 +126,10 @@ def summarize_classification(
 
     resumen = {
         "modelo": nombre_modelo,
-        "accuracy": accuracy_score(y_test, y_pred),
+        "accuracy": accuracy_score(
+            y_test,
+            y_pred,
+        ),
         "precision_clase_0": precision_score(
             y_test,
             y_pred,
@@ -166,12 +177,17 @@ def summarize_classification(
         y_test,
         y_pred,
         labels=[0, 1],
-        target_names=["No paga a tiempo", "Paga a tiempo"],
+        target_names=[
+            "No paga a tiempo",
+            "Paga a tiempo",
+        ],
         output_dict=True,
         zero_division=0,
     )
 
     return resumen, matriz, reporte
+
+
 if __name__ == "__main__":
 
     X_train, X_test, y_train, y_test = preparar_datos()
@@ -190,11 +206,20 @@ if __name__ == "__main__":
     print(y_test.value_counts())
     print(y_test.value_counts(normalize=True).round(4))
 
+    # ========================================================
+    # Modelo de referencia
+    # ========================================================
+
     modelo_base = build_model(
-        DummyClassifier(strategy="most_frequent")
+        modelo=DummyClassifier(
+            strategy="most_frequent",
+        )
     )
 
-    modelo_base.fit(X_train, y_train)
+    modelo_base.fit(
+        X_train,
+        y_train,
+    )
 
     resumen_base, matriz_base, _ = summarize_classification(
         nombre_modelo="DummyClassifier",
@@ -209,6 +234,10 @@ if __name__ == "__main__":
     print("\nMatriz de confusión del modelo base:")
     print(matriz_base)
 
+    # ========================================================
+    # Regresión Logística con puntaje
+    # ========================================================
+
     regresion_logistica = build_model(
         modelo=LogisticRegression(
             class_weight="balanced",
@@ -217,7 +246,10 @@ if __name__ == "__main__":
         )
     )
 
-    regresion_logistica.fit(X_train, y_train)
+    regresion_logistica.fit(
+        X_train,
+        y_train,
+    )
 
     resumen_logistica, matriz_logistica, _ = summarize_classification(
         nombre_modelo="Regresión Logística",
@@ -232,6 +264,10 @@ if __name__ == "__main__":
     print("\nMatriz de confusión de Regresión Logística:")
     print(matriz_logistica)
 
+    # ========================================================
+    # Regresión Logística sin puntaje
+    # ========================================================
+
     regresion_logistica_sin_puntaje = build_model(
         modelo=LogisticRegression(
             class_weight="balanced",
@@ -241,7 +277,10 @@ if __name__ == "__main__":
         columnas_excluir=["puntaje"],
     )
 
-    regresion_logistica_sin_puntaje.fit(X_train, y_train)
+    regresion_logistica_sin_puntaje.fit(
+        X_train,
+        y_train,
+    )
 
     (
         resumen_logistica_sin_puntaje,
@@ -260,6 +299,10 @@ if __name__ == "__main__":
     print("\nMatriz de confusión sin puntaje:")
     print(matriz_logistica_sin_puntaje)
 
+    # ========================================================
+    # Random Forest sin puntaje
+    # ========================================================
+
     random_forest_sin_puntaje = build_model(
         modelo=RandomForestClassifier(
             n_estimators=200,
@@ -270,7 +313,10 @@ if __name__ == "__main__":
         columnas_excluir=["puntaje"],
     )
 
-    random_forest_sin_puntaje.fit(X_train, y_train)
+    random_forest_sin_puntaje.fit(
+        X_train,
+        y_train,
+    )
 
     (
         resumen_random_forest,
@@ -288,6 +334,10 @@ if __name__ == "__main__":
 
     print("\nMatriz de confusión de Random Forest sin puntaje:")
     print(matriz_random_forest)
+
+    # ========================================================
+    # Gradient Boosting sin puntaje
+    # ========================================================
 
     pesos_entrenamiento = compute_sample_weight(
         class_weight="balanced",
@@ -326,3 +376,77 @@ if __name__ == "__main__":
 
     print("\nMatriz de confusión de Gradient Boosting sin puntaje:")
     print(matriz_gradient_boosting)
+
+    # ========================================================
+    # Tabla comparativa
+    # ========================================================
+
+    tabla_resultados = pd.DataFrame(
+        [
+            {
+                **resumen_base,
+                "escenario": "Referencia",
+            },
+            {
+                **resumen_logistica,
+                "escenario": "Con puntaje sospechoso",
+            },
+            {
+                **resumen_logistica_sin_puntaje,
+                "escenario": "Sin puntaje",
+            },
+            {
+                **resumen_random_forest,
+                "escenario": "Sin puntaje",
+            },
+            {
+                **resumen_gradient_boosting,
+                "escenario": "Sin puntaje",
+            },
+        ]
+    )
+
+    columnas_tabla = [
+        "modelo",
+        "escenario",
+        "accuracy",
+        "precision_clase_0",
+        "recall_clase_0",
+        "f1_clase_0",
+        "roc_auc_clase_0",
+    ]
+
+    tabla_resultados = tabla_resultados[columnas_tabla]
+
+    print("\nTabla comparativa completa:")
+    print(
+        tabla_resultados
+        .round(4)
+        .to_string(index=False)
+    )
+
+    # ========================================================
+    # Ranking conservador sin puntaje
+    # ========================================================
+
+    tabla_modelos_sin_puntaje = (
+        tabla_resultados[
+            tabla_resultados["escenario"] == "Sin puntaje"
+        ]
+        .sort_values(
+            by=[
+                "f1_clase_0",
+                "roc_auc_clase_0",
+                "recall_clase_0",
+            ],
+            ascending=False,
+        )
+        .reset_index(drop=True)
+    )
+
+    print("\nRanking de modelos sin puntaje:")
+    print(
+        tabla_modelos_sin_puntaje
+        .round(4)
+        .to_string(index=False)
+    )
