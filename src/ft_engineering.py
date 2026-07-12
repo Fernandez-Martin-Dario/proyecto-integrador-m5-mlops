@@ -35,7 +35,7 @@ def normalizar_tendencia_ingresos(df: pd.DataFrame) -> pd.DataFrame:
        que indica si el valor original era inconsistente.
 
     Esto permite limpiar la variable categórica sin perder la señal
-    de que existía una inconsencia en el dato original.
+    de que existía una inconsistencia en el dato original.
     """
 
     df_transformado = df.copy()
@@ -48,10 +48,15 @@ def normalizar_tendencia_ingresos(df: pd.DataFrame) -> pd.DataFrame:
 
     tendencia_original = df_transformado[columna]
 
-    tendencia_limpia = (
-        tendencia_original
-        .astype("string")
-        .str.strip()
+    tendencia_limpia = tendencia_original.astype("object")
+
+    tendencia_limpia = tendencia_limpia.where(
+        tendencia_limpia.notna(),
+        np.nan
+    )
+
+    tendencia_limpia = tendencia_limpia.apply(
+        lambda valor: valor.strip() if isinstance(valor, str) else valor
     )
 
     es_nulo_original = tendencia_original.isna()
@@ -66,9 +71,10 @@ def normalizar_tendencia_ingresos(df: pd.DataFrame) -> pd.DataFrame:
         0
     )
 
-    df_transformado[columna] = tendencia_limpia.where(
+    df_transformado[columna] = np.where(
         es_categoria_valida,
-        pd.NA
+        tendencia_limpia,
+        np.nan
     )
 
     return df_transformado
@@ -116,3 +122,92 @@ def aplicar_feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     df_transformado = crear_variables_fecha(df_transformado)
 
     return df_transformado
+def separar_features_target(
+    df: pd.DataFrame,
+    target: str = "Pago_atiempo"
+) -> tuple[pd.DataFrame, pd.Series]:
+    """
+    Separa el dataset en variables predictoras X y variable objetivo y.
+
+    La variable objetivo no debe ingresar al pipeline de preprocesamiento
+    como predictor, ya que eso produciría fuga de información.
+    """
+
+    if target not in df.columns:
+        raise ValueError(f"No se encontró la variable objetivo: {target}")
+
+    X = df.drop(columns=[target])
+    y = df[target]
+
+    return X, y
+def crear_preprocesador() -> ColumnTransformer:
+    """
+    Crea el preprocesador para las variables predictoras.
+
+    Estrategia:
+    - Variables numéricas:
+        imputación de nulos con mediana
+        escalado con StandardScaler
+
+    - Variables categóricas:
+        imputación de nulos con "Sin dato"
+        codificación con OneHotEncoder
+
+    La variable tipo_credito se trata como categórica porque, aunque está
+    almacenada como número, representa un código de tipo de crédito y no
+    una magnitud numérica continua.
+    """
+
+    columnas_categoricas = [
+        "tipo_credito",
+        "tipo_laboral",
+        "tendencia_ingresos"
+    ]
+
+    columnas_numericas = [
+        "capital_prestado",
+        "plazo_meses",
+        "edad_cliente",
+        "salario_cliente",
+        "total_otros_prestamos",
+        "cuota_pactada",
+        "puntaje",
+        "puntaje_datacredito",
+        "cant_creditosvigentes",
+        "huella_consulta",
+        "saldo_mora",
+        "saldo_total",
+        "saldo_principal",
+        "saldo_mora_codeudor",
+        "creditos_sectorFinanciero",
+        "creditos_sectorCooperativo",
+        "creditos_sectorReal",
+        "promedio_ingresos_datacredito",
+        "tendencia_ingresos_inconsistente",
+        "anio_prestamo",
+        "mes_prestamo",
+        "dia_semana_prestamo"
+    ]
+
+    pipeline_numerico = Pipeline(
+        steps=[
+            ("imputador", SimpleImputer(strategy="median")),
+            ("escalador", StandardScaler())
+        ]
+    )
+
+    pipeline_categorico = Pipeline(
+        steps=[
+            ("imputador", SimpleImputer(strategy="constant", fill_value="Sin dato")),
+            ("codificador", OneHotEncoder(handle_unknown="ignore"))
+        ]
+    )
+
+    preprocesador = ColumnTransformer(
+        transformers=[
+            ("numericas", pipeline_numerico, columnas_numericas),
+            ("categoricas", pipeline_categorico, columnas_categoricas)
+        ]
+    )
+
+    return preprocesador
