@@ -7,6 +7,7 @@ desarrollados en los pasos anteriores del proyecto.
 
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import pandas as pd
 
 from sklearn.base import BaseEstimator
@@ -186,6 +187,51 @@ def summarize_classification(
     )
 
     return resumen, matriz, reporte
+
+
+def graficar_comparacion_modelos(
+    tabla_modelos: pd.DataFrame,
+) -> None:
+    """
+    Grafica las métricas principales de los modelos sin puntaje.
+
+    Parameters
+    ----------
+    tabla_modelos : pd.DataFrame
+        Tabla con las métricas de los modelos comparados.
+    """
+
+    metricas = [
+        "precision_clase_0",
+        "recall_clase_0",
+        "f1_clase_0",
+        "roc_auc_clase_0",
+    ]
+
+    datos_grafico = (
+        tabla_modelos
+        .set_index("modelo")[metricas]
+    )
+
+    eje = datos_grafico.plot(
+        kind="bar",
+        figsize=(12, 6),
+    )
+
+    eje.set_title(
+        "Comparación de modelos sin la variable puntaje"
+    )
+    eje.set_xlabel("Modelo")
+    eje.set_ylabel("Valor de la métrica")
+    eje.set_ylim(0, 1)
+
+    plt.xticks(
+        rotation=15,
+        ha="right",
+    )
+    plt.legend(title="Métrica")
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -449,4 +495,12 @@ if __name__ == "__main__":
         tabla_modelos_sin_puntaje
         .round(4)
         .to_string(index=False)
+    )
+
+    # ========================================================
+    # Gráfico comparativo
+    # ========================================================
+
+    graficar_comparacion_modelos(
+        tabla_modelos_sin_puntaje
     )
