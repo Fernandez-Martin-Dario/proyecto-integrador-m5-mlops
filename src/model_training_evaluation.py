@@ -31,6 +31,8 @@ from ft_engineering import (
 
 from sklearn.dummy import DummyClassifier
 
+from sklearn.linear_model import LogisticRegression
+
 def preparar_datos():
     """
     Carga la configuración y la base, aplica feature engineering
@@ -191,3 +193,26 @@ if __name__ == "__main__":
 
     print("\nMatriz de confusión del modelo base:")
     print(matriz_base)
+
+    regresion_logistica = build_model(
+        LogisticRegression(
+            class_weight="balanced",
+            random_state=42,
+            max_iter=1000,
+        )
+    )
+
+    regresion_logistica.fit(X_train, y_train)
+
+    resumen_logistica, matriz_logistica, _ = summarize_classification(
+        nombre_modelo="Regresión Logística",
+        modelo=regresion_logistica,
+        X_test=X_test,
+        y_test=y_test,
+    )
+
+    print("\nResultados de Regresión Logística:")
+    print(pd.Series(resumen_logistica))
+
+    print("\nMatriz de confusión de Regresión Logística:")
+    print(matriz_logistica)
