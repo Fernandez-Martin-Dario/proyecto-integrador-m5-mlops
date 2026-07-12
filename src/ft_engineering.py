@@ -5,6 +5,8 @@
 import pandas as pd
 import numpy as np
 
+from pathlib import Path
+
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
@@ -211,3 +213,27 @@ def crear_preprocesador() -> ColumnTransformer:
     )
 
     return preprocesador
+if __name__ == "__main__":
+
+    from cargar_datos import cargar_base
+
+    ruta_config = Path(__file__).resolve().parent / "config.json"
+
+    df = cargar_base(ruta_config)
+
+    df_transformado = aplicar_feature_engineering(df)
+
+    X, y = separar_features_target(df_transformado)
+
+    preprocesador = crear_preprocesador()
+
+    X_procesado = preprocesador.fit_transform(X)
+
+    print("Feature engineering ejecutado correctamente.")
+    print(f"Shape original: {df.shape}")
+    print(f"Shape transformado: {df_transformado.shape}")
+    print(f"Shape X: {X.shape}")
+    print(f"Shape y: {y.shape}")
+    print(f"Shape X procesado: {X_procesado.shape}")
+    print("Distribución del target:")
+    print(y.value_counts())
