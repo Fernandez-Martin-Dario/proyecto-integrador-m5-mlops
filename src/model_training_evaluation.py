@@ -33,7 +33,8 @@ from sklearn.dummy import DummyClassifier
 
 from sklearn.linear_model import LogisticRegression
 
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.utils.class_weight import compute_sample_weight
 
 def preparar_datos():
     """
@@ -287,3 +288,41 @@ if __name__ == "__main__":
 
     print("\nMatriz de confusión de Random Forest sin puntaje:")
     print(matriz_random_forest)
+
+    pesos_entrenamiento = compute_sample_weight(
+        class_weight="balanced",
+        y=y_train,
+    )
+
+    gradient_boosting_sin_puntaje = build_model(
+        modelo=GradientBoostingClassifier(
+            n_estimators=100,
+            learning_rate=0.05,
+            max_depth=3,
+            random_state=42,
+        ),
+        columnas_excluir=["puntaje"],
+    )
+
+    gradient_boosting_sin_puntaje.fit(
+        X_train,
+        y_train,
+        modelo__sample_weight=pesos_entrenamiento,
+    )
+
+    (
+        resumen_gradient_boosting,
+        matriz_gradient_boosting,
+        _,
+    ) = summarize_classification(
+        nombre_modelo="Gradient Boosting sin puntaje",
+        modelo=gradient_boosting_sin_puntaje,
+        X_test=X_test,
+        y_test=y_test,
+    )
+
+    print("\nResultados de Gradient Boosting sin puntaje:")
+    print(pd.Series(resumen_gradient_boosting))
+
+    print("\nMatriz de confusión de Gradient Boosting sin puntaje:")
+    print(matriz_gradient_boosting)
