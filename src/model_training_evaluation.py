@@ -33,6 +33,8 @@ from sklearn.dummy import DummyClassifier
 
 from sklearn.linear_model import LogisticRegression
 
+from sklearn.ensemble import RandomForestClassifier
+
 def preparar_datos():
     """
     Carga la configuración y la base, aplica feature engineering
@@ -256,3 +258,32 @@ if __name__ == "__main__":
 
     print("\nMatriz de confusión sin puntaje:")
     print(matriz_logistica_sin_puntaje)
+
+    random_forest_sin_puntaje = build_model(
+        modelo=RandomForestClassifier(
+            n_estimators=200,
+            class_weight="balanced",
+            random_state=42,
+            n_jobs=-1,
+        ),
+        columnas_excluir=["puntaje"],
+    )
+
+    random_forest_sin_puntaje.fit(X_train, y_train)
+
+    (
+        resumen_random_forest,
+        matriz_random_forest,
+        _,
+    ) = summarize_classification(
+        nombre_modelo="Random Forest sin puntaje",
+        modelo=random_forest_sin_puntaje,
+        X_test=X_test,
+        y_test=y_test,
+    )
+
+    print("\nResultados de Random Forest sin puntaje:")
+    print(pd.Series(resumen_random_forest))
+
+    print("\nMatriz de confusión de Random Forest sin puntaje:")
+    print(matriz_random_forest)
