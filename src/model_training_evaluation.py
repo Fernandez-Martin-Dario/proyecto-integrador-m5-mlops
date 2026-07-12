@@ -29,6 +29,8 @@ from ft_engineering import (
     separar_features_target,
 )
 
+from sklearn.dummy import DummyClassifier
+
 def preparar_datos():
     """
     Carga la configuración y la base, aplica feature engineering
@@ -59,7 +61,100 @@ def preparar_datos():
     )
 
     return X_train, X_test, y_train, y_test
+def build_model(modelo: BaseEstimator) -> Pipeline:
+    """
+    Construye un pipeline completo de preprocesamiento y modelado.
 
+    Parameters
+    ----------
+    modelo : BaseEstimator
+        Modelo supervisado compatible con la API de scikit-learn.
+
+    Returns
+    -------
+    Pipeline
+        Pipeline compuesto por el preprocesador y el modelo.
+    """
+
+    pipeline_modelo = Pipeline(
+        steps=[
+            ("preprocesador", crear_preprocesador()),
+            ("modelo", modelo),
+        ]
+    )
+
+    return pipeline_modelo
+def summarize_classification(
+    nombre_modelo: str,
+    modelo: Pipeline,
+    X_test: pd.DataFrame,
+    y_test: pd.Series,
+):
+    """
+    Resume el desempeño de un modelo de clasificación.
+
+    Se priorizan las métricas de la clase 0, que representa a los clientes
+    que no pagaron a tiempo y constituye la clase minoritaria.
+    """
+
+    y_pred = modelo.predict(X_test)
+
+    resumen = {
+        "modelo": nombre_modelo,
+        "accuracy": accuracy_score(y_test, y_pred),
+        "precision_clase_0": precision_score(
+            y_test,
+            y_pred,
+            pos_label=0,
+            zero_division=0,
+        ),
+        "recall_clase_0": recall_score(
+            y_test,
+            y_pred,
+            pos_label=0,
+            zero_division=0,
+        ),
+        "f1_clase_0": f1_score(
+            y_test,
+            y_pred,
+            pos_label=0,
+            zero_division=0,
+        ),
+    }
+
+    roc_auc_clase_0 = float("nan")
+
+    if hasattr(modelo, "predict_proba"):
+        probabilidades = modelo.predict_proba(X_test)
+
+        clases_modelo = modelo.named_steps["modelo"].classes_
+        indice_clase_0 = list(clases_modelo).index(0)
+
+        y_test_clase_0 = (y_test == 0).astype(int)
+
+        roc_auc_clase_0 = roc_auc_score(
+            y_test_clase_0,
+            probabilidades[:, indice_clase_0],
+        )
+
+    resumen["roc_auc_clase_0"] = roc_auc_clase_0
+
+    matriz = confusion_matrix(
+        y_test,
+        y_pred,
+        labels=[0, 1],
+    )
+
+    reporte = classification_report(
+        y_test,
+        y_pred,
+        labels=[0, 1],
+        target_names=["No paga a tiempo", "Paga a tiempo"],
+        output_dict=True,
+        zero_division=0,
+    )
+
+    return resumen, matriz, reporte
 if __name__ == "__main__":
 
     X_train, X_test, y_train, y_test = preparar_datos()
@@ -77,3 +172,22 @@ if __name__ == "__main__":
     print("\nDistribución y_test:")
     print(y_test.value_counts())
     print(y_test.value_counts(normalize=True).round(4))
+
+    modelo_base = build_model(
+        DummyClassifier(strategy="most_frequent")
+    )
+
+    modelo_base.fit(X_train, y_train)
+
+    resumen_base, matriz_base, _ = summarize_classification(
+        nombre_modelo="DummyClassifier",
+        modelo=modelo_base,
+        X_test=X_test,
+        y_test=y_test,
+    )
+
+    print("\nResultados del modelo base:")
+    print(pd.Series(resumen_base))
+
+    print("\nMatriz de confusión del modelo base:")
+    print(matriz_base)
