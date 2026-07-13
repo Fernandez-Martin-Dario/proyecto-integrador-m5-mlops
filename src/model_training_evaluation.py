@@ -22,11 +22,16 @@ from sklearn.metrics import (
     classification_report,
     confusion_matrix,
     f1_score,
+    make_scorer,
     precision_score,
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import (
+    GridSearchCV,
+    StratifiedKFold,
+    train_test_split,
+)
 from sklearn.pipeline import Pipeline
 from sklearn.utils.class_weight import compute_sample_weight
 
@@ -234,6 +239,79 @@ def graficar_comparacion_modelos(
     plt.show()
 
 
+def optimizar_gradient_boosting(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+) -> GridSearchCV:
+    """
+    Optimiza Gradient Boosting mediante validación cruzada estratificada.
+
+    La búsqueda utiliza únicamente los datos de entrenamiento y prioriza
+    el F1 de la clase 0, correspondiente a quienes no pagan a tiempo.
+    """
+
+    modelo_pipeline = build_model(
+        modelo=GradientBoostingClassifier(
+            random_state=42,
+        ),
+        columnas_excluir=["puntaje"],
+    )
+
+    parametros = {
+        "modelo__n_estimators": [
+            100,
+            200,
+        ],
+        "modelo__learning_rate": [
+            0.03,
+            0.05,
+        ],
+        "modelo__max_depth": [
+            2,
+            3,
+        ],
+        "modelo__min_samples_leaf": [
+            1,
+            5,
+        ],
+    }
+
+    validacion_cruzada = StratifiedKFold(
+        n_splits=5,
+        shuffle=True,
+        random_state=42,
+    )
+
+    metrica_f1_clase_0 = make_scorer(
+        f1_score,
+        pos_label=0,
+        zero_division=0,
+    )
+
+    busqueda = GridSearchCV(
+        estimator=modelo_pipeline,
+        param_grid=parametros,
+        scoring=metrica_f1_clase_0,
+        cv=validacion_cruzada,
+        n_jobs=-1,
+        verbose=1,
+        refit=True,
+    )
+
+    pesos_entrenamiento = compute_sample_weight(
+        class_weight="balanced",
+        y=y_train,
+    )
+
+    busqueda.fit(
+        X_train,
+        y_train,
+        modelo__sample_weight=pesos_entrenamiento,
+    )
+
+    return busqueda
+
+
 if __name__ == "__main__":
 
     X_train, X_test, y_train, y_test = preparar_datos()
@@ -424,6 +502,42 @@ if __name__ == "__main__":
     print(matriz_gradient_boosting)
 
     # ========================================================
+    # Optimización de Gradient Boosting
+    # ========================================================
+
+    busqueda_gradient_boosting = optimizar_gradient_boosting(
+        X_train=X_train,
+        y_train=y_train,
+    )
+
+    print("\nMejores hiperparámetros de Gradient Boosting:")
+    print(busqueda_gradient_boosting.best_params_)
+
+    print("\nMejor F1 promedio de clase 0 en validación cruzada:")
+    print(round(busqueda_gradient_boosting.best_score_, 4))
+
+    mejor_gradient_boosting = (
+        busqueda_gradient_boosting.best_estimator_
+    )
+
+    (
+        resumen_gradient_boosting_optimizado,
+        matriz_gradient_boosting_optimizado,
+        _,
+    ) = summarize_classification(
+        nombre_modelo="Gradient Boosting optimizado sin puntaje",
+        modelo=mejor_gradient_boosting,
+        X_test=X_test,
+        y_test=y_test,
+    )
+
+    print("\nResultados de Gradient Boosting optimizado:")
+    print(pd.Series(resumen_gradient_boosting_optimizado))
+
+    print("\nMatriz de confusión de Gradient Boosting optimizado:")
+    print(matriz_gradient_boosting_optimizado)
+
+    # ========================================================
     # Tabla comparativa
     # ========================================================
 
@@ -447,6 +561,10 @@ if __name__ == "__main__":
             },
             {
                 **resumen_gradient_boosting,
+                "escenario": "Sin puntaje",
+            },
+              {
+                **resumen_gradient_boosting_optimizado,
                 "escenario": "Sin puntaje",
             },
         ]
