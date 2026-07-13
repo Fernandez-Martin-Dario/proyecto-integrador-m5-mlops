@@ -2,10 +2,10 @@
 # Ingeniería de características - Proyecto Integrador M5
 # ============================================================
 
-import pandas as pd
-import numpy as np
-
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
@@ -17,8 +17,10 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 CATEGORIAS_VALIDAS_TENDENCIA = [
     "Creciente",
     "Decreciente",
-    "Estable"
+    "Estable",
 ]
+
+
 def normalizar_tendencia_ingresos(df: pd.DataFrame) -> pd.DataFrame:
     """
     Normaliza la variable tendencia_ingresos y conserva información
@@ -54,7 +56,7 @@ def normalizar_tendencia_ingresos(df: pd.DataFrame) -> pd.DataFrame:
 
     tendencia_limpia = tendencia_limpia.where(
         tendencia_limpia.notna(),
-        np.nan
+        np.nan,
     )
 
     tendencia_limpia = tendencia_limpia.apply(
@@ -70,16 +72,18 @@ def normalizar_tendencia_ingresos(df: pd.DataFrame) -> pd.DataFrame:
     df_transformado[columna_inconsistente] = np.where(
         (~es_nulo_original) & (~es_categoria_valida),
         1,
-        0
+        0,
     )
 
     df_transformado[columna] = np.where(
         es_categoria_valida,
         tendencia_limpia,
-        np.nan
+        np.nan,
     )
 
     return df_transformado
+
+
 def crear_variables_fecha(df: pd.DataFrame) -> pd.DataFrame:
     """
     Crea variables temporales a partir de fecha_prestamo.
@@ -98,16 +102,28 @@ def crear_variables_fecha(df: pd.DataFrame) -> pd.DataFrame:
 
     df_transformado[columna_fecha] = pd.to_datetime(
         df_transformado[columna_fecha],
-        errors="coerce"
+        errors="coerce",
     )
 
-    df_transformado["anio_prestamo"] = df_transformado[columna_fecha].dt.year
-    df_transformado["mes_prestamo"] = df_transformado[columna_fecha].dt.month
-    df_transformado["dia_semana_prestamo"] = df_transformado[columna_fecha].dt.dayofweek
+    df_transformado["anio_prestamo"] = (
+        df_transformado[columna_fecha].dt.year
+    )
 
-    df_transformado = df_transformado.drop(columns=[columna_fecha])
+    df_transformado["mes_prestamo"] = (
+        df_transformado[columna_fecha].dt.month
+    )
+
+    df_transformado["dia_semana_prestamo"] = (
+        df_transformado[columna_fecha].dt.dayofweek
+    )
+
+    df_transformado = df_transformado.drop(
+        columns=[columna_fecha]
+    )
 
     return df_transformado
+
+
 def aplicar_feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     """
     Aplica las transformaciones de ingeniería de características definidas
@@ -120,13 +136,20 @@ def aplicar_feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
 
     df_transformado = df.copy()
 
-    df_transformado = normalizar_tendencia_ingresos(df_transformado)
-    df_transformado = crear_variables_fecha(df_transformado)
+    df_transformado = normalizar_tendencia_ingresos(
+        df_transformado
+    )
+
+    df_transformado = crear_variables_fecha(
+        df_transformado
+    )
 
     return df_transformado
+
+
 def separar_features_target(
     df: pd.DataFrame,
-    target: str = "Pago_atiempo"
+    target: str = "Pago_atiempo",
 ) -> tuple[pd.DataFrame, pd.Series]:
     """
     Separa el dataset en variables predictoras X y variable objetivo y.
@@ -136,15 +159,28 @@ def separar_features_target(
     """
 
     if target not in df.columns:
-        raise ValueError(f"No se encontró la variable objetivo: {target}")
+        raise ValueError(
+            f"No se encontró la variable objetivo: {target}"
+        )
 
     X = df.drop(columns=[target])
     y = df[target]
 
     return X, y
-def crear_preprocesador() -> ColumnTransformer:
+
+
+def crear_preprocesador(
+    columnas_excluir: list[str] | None = None,
+) -> ColumnTransformer:
     """
     Crea el preprocesador para las variables predictoras.
+
+    Parameters
+    ----------
+    columnas_excluir : list[str] | None
+        Columnas que deben excluirse del preprocesamiento y del modelado.
+        Si no se especifica ninguna, se utilizan todas las variables
+        definidas.
 
     Estrategia:
     - Variables numéricas:
@@ -163,7 +199,7 @@ def crear_preprocesador() -> ColumnTransformer:
     columnas_categoricas = [
         "tipo_credito",
         "tipo_laboral",
-        "tendencia_ingresos"
+        "tendencia_ingresos",
     ]
 
     columnas_numericas = [
@@ -188,36 +224,78 @@ def crear_preprocesador() -> ColumnTransformer:
         "tendencia_ingresos_inconsistente",
         "anio_prestamo",
         "mes_prestamo",
-        "dia_semana_prestamo"
+        "dia_semana_prestamo",
+    ]
+
+    columnas_excluir = set(columnas_excluir or [])
+
+    columnas_numericas = [
+        columna
+        for columna in columnas_numericas
+        if columna not in columnas_excluir
+    ]
+
+    columnas_categoricas = [
+        columna
+        for columna in columnas_categoricas
+        if columna not in columnas_excluir
     ]
 
     pipeline_numerico = Pipeline(
         steps=[
-            ("imputador", SimpleImputer(strategy="median")),
-            ("escalador", StandardScaler())
+            (
+                "imputador",
+                SimpleImputer(strategy="median"),
+            ),
+            (
+                "escalador",
+                StandardScaler(),
+            ),
         ]
     )
 
     pipeline_categorico = Pipeline(
         steps=[
-            ("imputador", SimpleImputer(strategy="constant", fill_value="Sin dato")),
-            ("codificador", OneHotEncoder(handle_unknown="ignore"))
+            (
+                "imputador",
+                SimpleImputer(
+                    strategy="constant",
+                    fill_value="Sin dato",
+                ),
+            ),
+            (
+                "codificador",
+                OneHotEncoder(handle_unknown="ignore"),
+            ),
         ]
     )
 
     preprocesador = ColumnTransformer(
         transformers=[
-            ("numericas", pipeline_numerico, columnas_numericas),
-            ("categoricas", pipeline_categorico, columnas_categoricas)
+            (
+                "numericas",
+                pipeline_numerico,
+                columnas_numericas,
+            ),
+            (
+                "categoricas",
+                pipeline_categorico,
+                columnas_categoricas,
+            ),
         ]
     )
 
     return preprocesador
+
+
 if __name__ == "__main__":
 
     from cargar_datos import cargar_base
 
-    ruta_config = Path(__file__).resolve().parent / "config.json"
+    ruta_config = (
+        Path(__file__).resolve().parent
+        / "config.json"
+    )
 
     df = cargar_base(ruta_config)
 
