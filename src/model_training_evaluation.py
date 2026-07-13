@@ -622,3 +622,36 @@ if __name__ == "__main__":
     graficar_comparacion_modelos(
         tabla_modelos_sin_puntaje
     )
+
+    # ========================================================
+    # Selección del modelo final
+    # ========================================================
+
+    modelos_entrenados = {
+        "Regresión Logística sin puntaje": (
+            regresion_logistica_sin_puntaje
+        ),
+        "Random Forest sin puntaje": (
+            random_forest_sin_puntaje
+        ),
+        "Gradient Boosting sin puntaje": (
+            gradient_boosting_sin_puntaje
+        ),
+        "Gradient Boosting optimizado sin puntaje": (
+            mejor_gradient_boosting
+        ),
+    }
+
+    nombre_modelo_final = (
+        tabla_modelos_sin_puntaje.iloc[0]["modelo"]
+    )
+
+    modelo_final = modelos_entrenados[nombre_modelo_final]
+
+    print("\nModelo final seleccionado:")
+    print(nombre_modelo_final)
+
+    print(
+        "Criterio de selección: mayor F1 de la clase 0 "
+        "entre los modelos sin puntaje."
+    )
