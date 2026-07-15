@@ -159,3 +159,63 @@ def calcular_psi_numerico(
     )
 
     return float(psi)
+def clasificar_psi(valor_psi: float) -> str:
+    """
+    Clasifica la magnitud del cambio según el valor de PSI.
+    """
+
+    if valor_psi < 0.10:
+        return "Estable"
+
+    if valor_psi < 0.25:
+        return "Cambio moderado"
+
+    return "Cambio importante"
+
+
+def analizar_drift_numerico(
+    referencia: pd.DataFrame,
+    actual: pd.DataFrame,
+    columnas_excluir: list[str] | None = None,
+) -> pd.DataFrame:
+    """
+    Calcula el PSI para todas las variables numéricas
+    presentes en los períodos de referencia y actual.
+    """
+
+    columnas_excluir = set(columnas_excluir or [])
+
+    columnas_referencia = set(
+        referencia.select_dtypes(include=np.number).columns
+    )
+
+    columnas_actual = set(
+        actual.select_dtypes(include=np.number).columns
+    )
+
+    columnas_numericas = sorted(
+        (columnas_referencia & columnas_actual)
+        - columnas_excluir
+    )
+
+    resultados = []
+
+    for columna in columnas_numericas:
+        valor_psi = calcular_psi_numerico(
+            referencia[columna],
+            actual[columna],
+        )
+
+        resultados.append(
+            {
+                "variable": columna,
+                "psi": valor_psi,
+                "clasificacion": clasificar_psi(valor_psi),
+            }
+        )
+
+    return (
+        pd.DataFrame(resultados)
+        .sort_values("psi", ascending=False)
+        .reset_index(drop=True)
+    )
