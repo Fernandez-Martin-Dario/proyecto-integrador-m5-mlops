@@ -1,7 +1,7 @@
 from __future__ import annotations
-import pandas as pd
+
 import numpy as np
-from src.cargar_datos import cargar_base, cargar_config
+import pandas as pd
 
 
 def separar_periodos_monitoreo(
@@ -21,14 +21,14 @@ def separar_periodos_monitoreo(
         errors="coerce",
     )
 
-    fecha_corte = pd.Timestamp(fecha_corte)
+    fecha_corte_timestamp = pd.Timestamp(fecha_corte)
 
     referencia = datos.loc[
-        datos[columna_fecha] < fecha_corte
+        datos[columna_fecha] < fecha_corte_timestamp
     ].copy()
 
     actual = datos.loc[
-        datos[columna_fecha] >= fecha_corte
+        datos[columna_fecha] >= fecha_corte_timestamp
     ].copy()
 
     if referencia.empty:
@@ -42,6 +42,7 @@ def separar_periodos_monitoreo(
         )
 
     return referencia, actual
+
 
 def calcular_psi_numerico(
     referencia: pd.Series,
@@ -85,9 +86,12 @@ def calcular_psi_numerico(
         cantidad_bins + 1,
     )
 
-    limites = serie_referencia.dropna().quantile(
-        cuantiles
-    ).to_numpy(dtype=float)
+    limites = (
+        serie_referencia
+        .dropna()
+        .quantile(cuantiles)
+        .to_numpy(dtype=float)
+    )
 
     limites = np.unique(limites)
 
@@ -159,66 +163,8 @@ def calcular_psi_numerico(
     )
 
     return float(psi)
-def clasificar_psi(valor_psi: float) -> str:
-    """
-    Clasifica la magnitud del cambio según el valor de PSI.
-    """
-
-    if valor_psi < 0.10:
-        return "Estable"
-
-    if valor_psi < 0.25:
-        return "Cambio moderado"
-
-    return "Cambio importante"
 
 
-def analizar_drift_numerico(
-    referencia: pd.DataFrame,
-    actual: pd.DataFrame,
-    columnas_excluir: list[str] | None = None,
-) -> pd.DataFrame:
-    """
-    Calcula el PSI para todas las variables numéricas
-    presentes en los períodos de referencia y actual.
-    """
-
-    columnas_excluir = set(columnas_excluir or [])
-
-    columnas_referencia = set(
-        referencia.select_dtypes(include=np.number).columns
-    )
-
-    columnas_actual = set(
-        actual.select_dtypes(include=np.number).columns
-    )
-
-    columnas_numericas = sorted(
-        (columnas_referencia & columnas_actual)
-        - columnas_excluir
-    )
-
-    resultados = []
-
-    for columna in columnas_numericas:
-        valor_psi = calcular_psi_numerico(
-            referencia[columna],
-            actual[columna],
-        )
-
-        resultados.append(
-            {
-                "variable": columna,
-                "psi": valor_psi,
-                "clasificacion": clasificar_psi(valor_psi),
-            }
-        )
-
-    return (
-        pd.DataFrame(resultados)
-        .sort_values("psi", ascending=False)
-        .reset_index(drop=True)
-    )
 def calcular_psi_categorico(
     referencia: pd.Series,
     actual: pd.Series,
@@ -286,3 +232,110 @@ def calcular_psi_categorico(
     )
 
     return float(psi)
+
+
+def clasificar_psi(valor_psi: float) -> str:
+    """
+    Clasifica la magnitud del cambio según el valor de PSI.
+    """
+
+    if valor_psi < 0.10:
+        return "Estable"
+
+    if valor_psi < 0.25:
+        return "Cambio moderado"
+
+    return "Cambio importante"
+
+
+def analizar_drift_numerico(
+    referencia: pd.DataFrame,
+    actual: pd.DataFrame,
+    columnas_excluir: list[str] | None = None,
+) -> pd.DataFrame:
+    """
+    Calcula el PSI para todas las variables numéricas
+    presentes en los períodos de referencia y actual.
+    """
+
+    columnas_excluir = set(columnas_excluir or [])
+
+    columnas_referencia = set(
+        referencia.select_dtypes(include=np.number).columns
+    )
+
+    columnas_actual = set(
+        actual.select_dtypes(include=np.number).columns
+    )
+
+    columnas_numericas = sorted(
+        (columnas_referencia & columnas_actual)
+        - columnas_excluir
+    )
+
+    resultados = []
+
+    for columna in columnas_numericas:
+        valor_psi = calcular_psi_numerico(
+            referencia[columna],
+            actual[columna],
+        )
+
+        resultados.append(
+            {
+                "variable": columna,
+                "psi": valor_psi,
+                "clasificacion": clasificar_psi(valor_psi),
+            }
+        )
+
+    return (
+        pd.DataFrame(resultados)
+        .sort_values("psi", ascending=False)
+        .reset_index(drop=True)
+    )
+
+
+def analizar_drift_categorico(
+    referencia: pd.DataFrame,
+    actual: pd.DataFrame,
+    columnas_categoricas: list[str],
+) -> pd.DataFrame:
+    """
+    Calcula el PSI para las variables categóricas indicadas.
+    """
+
+    columnas_faltantes = [
+        columna
+        for columna in columnas_categoricas
+        if columna not in referencia.columns
+        or columna not in actual.columns
+    ]
+
+    if columnas_faltantes:
+        raise ValueError(
+            "No se encontraron las siguientes columnas: "
+            f"{columnas_faltantes}"
+        )
+
+    resultados = []
+
+    for columna in columnas_categoricas:
+        valor_psi = calcular_psi_categorico(
+            referencia[columna],
+            actual[columna],
+        )
+
+        resultados.append(
+            {
+                "variable": columna,
+                "psi": valor_psi,
+                "clasificacion": clasificar_psi(valor_psi),
+            }
+        )
+
+    return (
+        pd.DataFrame(resultados)
+        .sort_values("psi", ascending=False)
+        .reset_index(drop=True)
+    )
