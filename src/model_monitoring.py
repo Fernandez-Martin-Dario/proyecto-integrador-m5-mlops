@@ -339,3 +339,62 @@ def analizar_drift_categorico(
         .sort_values("psi", ascending=False)
         .reset_index(drop=True)
     )
+def analizar_drift_target(
+    referencia: pd.DataFrame,
+    actual: pd.DataFrame,
+    columna_target: str,
+    clase_interes: int = 0,
+) -> pd.DataFrame:
+    """
+    Analiza el cambio temporal en la distribución del target.
+
+    Por defecto, monitorea la clase 0, que representa
+    la clase minoritaria del proyecto.
+    """
+
+    if columna_target not in referencia.columns:
+        raise ValueError(
+            f"El target '{columna_target}' no existe "
+            "en el período de referencia."
+        )
+
+    if columna_target not in actual.columns:
+        raise ValueError(
+            f"El target '{columna_target}' no existe "
+            "en el período actual."
+        )
+
+    proporcion_referencia = (
+        referencia[columna_target]
+        .eq(clase_interes)
+        .mean()
+    )
+
+    proporcion_actual = (
+        actual[columna_target]
+        .eq(clase_interes)
+        .mean()
+    )
+
+    diferencia_pp = (
+        proporcion_actual - proporcion_referencia
+    ) * 100
+
+    valor_psi = calcular_psi_categorico(
+        referencia[columna_target],
+        actual[columna_target],
+    )
+
+    return pd.DataFrame(
+        [
+            {
+                "target": columna_target,
+                "clase_interes": clase_interes,
+                "proporcion_referencia": proporcion_referencia,
+                "proporcion_actual": proporcion_actual,
+                "diferencia_puntos_porcentuales": diferencia_pp,
+                "psi": valor_psi,
+                "clasificacion": clasificar_psi(valor_psi),
+            }
+        ]
+    )
