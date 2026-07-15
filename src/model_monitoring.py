@@ -219,3 +219,70 @@ def analizar_drift_numerico(
         .sort_values("psi", ascending=False)
         .reset_index(drop=True)
     )
+def calcular_psi_categorico(
+    referencia: pd.Series,
+    actual: pd.Series,
+    epsilon: float = 1e-6,
+) -> float:
+    """
+    Calcula el Population Stability Index (PSI)
+    entre dos distribuciones categóricas.
+    """
+
+    serie_referencia = (
+        referencia
+        .astype("string")
+        .fillna("Sin dato")
+    )
+
+    serie_actual = (
+        actual
+        .astype("string")
+        .fillna("Sin dato")
+    )
+
+    if serie_referencia.empty or serie_actual.empty:
+        raise ValueError(
+            "Las series de referencia y actual no pueden estar vacías."
+        )
+
+    categorias = sorted(
+        set(serie_referencia.unique())
+        | set(serie_actual.unique())
+    )
+
+    proporcion_referencia = (
+        serie_referencia
+        .value_counts(normalize=True)
+        .reindex(categorias, fill_value=0)
+        .to_numpy(dtype=float)
+    )
+
+    proporcion_actual = (
+        serie_actual
+        .value_counts(normalize=True)
+        .reindex(categorias, fill_value=0)
+        .to_numpy(dtype=float)
+    )
+
+    proporcion_referencia = np.clip(
+        proporcion_referencia,
+        epsilon,
+        None,
+    )
+
+    proporcion_actual = np.clip(
+        proporcion_actual,
+        epsilon,
+        None,
+    )
+
+    psi = np.sum(
+        (proporcion_actual - proporcion_referencia)
+        * np.log(
+            proporcion_actual
+            / proporcion_referencia
+        )
+    )
+
+    return float(psi)
