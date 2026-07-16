@@ -1,3 +1,4 @@
+import pandas as pd
 import streamlit as st
 
 from src.cargar_datos import cargar_base, cargar_config
@@ -46,6 +47,68 @@ st.write(
 )
 
 reporte = cargar_reporte_monitoreo()
+
+periodos = reporte["periodos"]
+
+cantidad_referencia = int(
+    periodos.loc[
+        periodos["periodo"] == "Referencia",
+        "cantidad_registros",
+    ].iloc[0]
+)
+
+cantidad_actual = int(
+    periodos.loc[
+        periodos["periodo"] == "Actual",
+        "cantidad_registros",
+    ].iloc[0]
+)
+
+drift_predictoras = pd.concat(
+    [
+        reporte["drift_numerico"],
+        reporte["drift_categorico"],
+    ],
+    ignore_index=True,
+)
+
+cantidad_drift_importante = int(
+    (
+        drift_predictoras["clasificacion"]
+        == "Cambio importante"
+    ).sum()
+)
+
+cantidad_drift_moderado = int(
+    (
+        drift_predictoras["clasificacion"]
+        == "Cambio moderado"
+    ).sum()
+)
+
+st.header("Resumen ejecutivo")
+
+columna_1, columna_2, columna_3, columna_4 = st.columns(4)
+
+columna_1.metric(
+    "Registros de referencia",
+    f"{cantidad_referencia:,}".replace(",", "."),
+)
+
+columna_2.metric(
+    "Registros actuales",
+    f"{cantidad_actual:,}".replace(",", "."),
+)
+
+columna_3.metric(
+    "Cambios importantes",
+    cantidad_drift_importante,
+)
+
+columna_4.metric(
+    "Cambios moderados",
+    cantidad_drift_moderado,
+)
 
 st.header("Períodos de monitoreo")
 
