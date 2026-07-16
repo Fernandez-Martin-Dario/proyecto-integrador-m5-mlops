@@ -71,3 +71,14 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
 )
+st.header("Drift de variables categóricas")
+
+drift_categorico = reporte["drift_categorico"].copy()
+
+drift_categorico["psi"] = drift_categorico["psi"].round(4)
+
+st.dataframe(
+    drift_categorico,
+    use_container_width=True,
+    hide_index=True,
+)
