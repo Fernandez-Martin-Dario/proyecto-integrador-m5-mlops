@@ -54,3 +54,20 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
 )
+st.header("Drift de variables numéricas")
+
+st.caption(
+    "El PSI compara la distribución histórica con la distribución actual. "
+    "Valores inferiores a 0.10 se consideran estables, entre 0.10 y 0.25 "
+    "indican un cambio moderado y superiores a 0.25 un cambio importante."
+)
+
+drift_numerico = reporte["drift_numerico"].copy()
+
+drift_numerico["psi"] = drift_numerico["psi"].round(4)
+
+st.dataframe(
+    drift_numerico,
+    use_container_width=True,
+    hide_index=True,
+)
