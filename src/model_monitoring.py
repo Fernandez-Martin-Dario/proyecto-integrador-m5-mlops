@@ -398,3 +398,71 @@ def analizar_drift_target(
             }
         ]
     )
+def generar_reporte_monitoreo(
+    df: pd.DataFrame,
+    fecha_corte: str,
+    columna_target: str,
+    columnas_categoricas: list[str],
+    columna_fecha: str = "fecha_prestamo",
+) -> dict[str, pd.DataFrame]:
+    """
+    Genera el reporte completo de monitoreo:
+
+    - Resumen de los períodos analizados.
+    - Drift de variables numéricas.
+    - Drift de variables categóricas.
+    - Drift del target.
+    """
+
+    referencia, actual = separar_periodos_monitoreo(
+        df=df,
+        fecha_corte=fecha_corte,
+        columna_fecha=columna_fecha,
+    )
+
+    columnas_excluir_numericas = [
+        columna_target,
+        *columnas_categoricas,
+    ]
+
+    reporte_numerico = analizar_drift_numerico(
+        referencia=referencia,
+        actual=actual,
+        columnas_excluir=columnas_excluir_numericas,
+    )
+
+    reporte_categorico = analizar_drift_categorico(
+        referencia=referencia,
+        actual=actual,
+        columnas_categoricas=columnas_categoricas,
+    )
+
+    reporte_target = analizar_drift_target(
+        referencia=referencia,
+        actual=actual,
+        columna_target=columna_target,
+    )
+
+    resumen_periodos = pd.DataFrame(
+        [
+            {
+                "periodo": "Referencia",
+                "fecha_inicio": referencia[columna_fecha].min(),
+                "fecha_fin": referencia[columna_fecha].max(),
+                "cantidad_registros": len(referencia),
+            },
+            {
+                "periodo": "Actual",
+                "fecha_inicio": actual[columna_fecha].min(),
+                "fecha_fin": actual[columna_fecha].max(),
+                "cantidad_registros": len(actual),
+            },
+        ]
+    )
+
+    return {
+        "periodos": resumen_periodos,
+        "drift_numerico": reporte_numerico,
+        "drift_categorico": reporte_categorico,
+        "drift_target": reporte_target,
+    }
