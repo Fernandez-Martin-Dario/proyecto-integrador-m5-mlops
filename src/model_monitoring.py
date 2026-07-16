@@ -1,4 +1,5 @@
 from __future__ import annotations
+from src.cargar_datos import cargar_base, cargar_config
 
 import numpy as np
 import pandas as pd
@@ -466,3 +467,38 @@ def generar_reporte_monitoreo(
         "drift_categorico": reporte_categorico,
         "drift_target": reporte_target,
     }
+def main() -> None:
+    """
+    Ejecuta el proceso completo de monitoreo
+    utilizando la configuración del proyecto.
+    """
+
+    config = cargar_config()
+    df = cargar_base()
+
+    reporte = generar_reporte_monitoreo(
+        df=df,
+        fecha_corte=config["fecha_corte_monitoreo"],
+        columna_target=config["target"],
+        columnas_categoricas=[
+            "tipo_credito",
+            "tipo_laboral",
+            "tendencia_ingresos",
+        ],
+    )
+
+    print("\nPERÍODOS ANALIZADOS")
+    print(reporte["periodos"].to_string(index=False))
+
+    print("\nDRIFT NUMÉRICO")
+    print(reporte["drift_numerico"].to_string(index=False))
+
+    print("\nDRIFT CATEGÓRICO")
+    print(reporte["drift_categorico"].to_string(index=False))
+
+    print("\nDRIFT DEL TARGET")
+    print(reporte["drift_target"].to_string(index=False))
+
+
+if __name__ == "__main__":
+    main()
