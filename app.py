@@ -1,3 +1,4 @@
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -133,6 +134,56 @@ st.dataframe(
     drift_numerico,
     use_container_width=True,
     hide_index=True,
+)
+
+st.subheader("Comparación visual del PSI numérico")
+
+grafico_psi_numerico = (
+    drift_numerico
+    .nlargest(10, "psi")
+    .sort_values("psi", ascending=False)
+)
+
+grafico_barras_psi = (
+    alt.Chart(grafico_psi_numerico)
+    .mark_bar()
+    .encode(
+        x=alt.X(
+            "psi:Q",
+            title="PSI",
+        ),
+        y=alt.Y(
+            "variable:N",
+            title=None,
+            sort="-x",
+            axis=alt.Axis(
+                labelLimit=320,
+            ),
+        ),
+        tooltip=[
+            alt.Tooltip(
+                "variable:N",
+                title="Variable",
+            ),
+            alt.Tooltip(
+                "psi:Q",
+                title="PSI",
+                format=".4f",
+            ),
+            alt.Tooltip(
+                "clasificacion:N",
+                title="Clasificación",
+            ),
+        ],
+    )
+    .properties(
+        height=420,
+    )
+)
+
+st.altair_chart(
+    grafico_barras_psi,
+    use_container_width=True,
 )
 st.header("Drift de variables categóricas")
 
