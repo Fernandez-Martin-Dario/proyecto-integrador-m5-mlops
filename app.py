@@ -82,3 +82,27 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
 )
+st.header("Drift del target")
+
+drift_target = reporte["drift_target"].copy()
+
+drift_target["proporcion_referencia"] = (
+    drift_target["proporcion_referencia"] * 100
+).round(2)
+
+drift_target["proporcion_actual"] = (
+    drift_target["proporcion_actual"] * 100
+).round(2)
+
+drift_target["diferencia_puntos_porcentuales"] = (
+    drift_target["diferencia_puntos_porcentuales"]
+    .round(2)
+)
+
+drift_target["psi"] = drift_target["psi"].round(4)
+
+st.dataframe(
+    drift_target,
+    use_container_width=True,
+    hide_index=True,
+)
