@@ -7,9 +7,9 @@ desarrollados en los pasos anteriores del proyecto.
 
 from pathlib import Path
 
+import joblib
 import matplotlib.pyplot as plt
 import pandas as pd
-
 from sklearn.base import BaseEstimator
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import (
@@ -35,13 +35,12 @@ from sklearn.model_selection import (
 from sklearn.pipeline import Pipeline
 from sklearn.utils.class_weight import compute_sample_weight
 
-from cargar_datos import cargar_base, cargar_config
-from ft_engineering import (
+from src.cargar_datos import cargar_base, cargar_config
+from src.ft_engineering import (
     aplicar_feature_engineering,
     crear_preprocesador,
     separar_features_target,
 )
-
 
 def preparar_datos():
     """
@@ -311,6 +310,62 @@ def optimizar_gradient_boosting(
 
     return busqueda
 
+def entrenar_y_guardar_modelo_final(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+) -> tuple[Pipeline, Path]:
+    """
+    Entrena y guarda el pipeline final seleccionado para despliegue.
+
+    El modelo utiliza los mejores hiperparámetros obtenidos mediante
+    GridSearchCV y excluye la variable sospechosa de fuga `puntaje`.
+
+    Returns
+    -------
+    tuple[Pipeline, Path]
+        Pipeline entrenado y ruta donde fue guardado.
+    """
+
+    ruta_config = Path(__file__).resolve().parent / "config.json"
+    config = cargar_config(ruta_config)
+
+    ruta_modelo = (
+        ruta_config.parent / config["ruta_modelo"]
+    ).resolve()
+
+    modelo_final = build_model(
+        modelo=GradientBoostingClassifier(
+            n_estimators=200,
+            learning_rate=0.05,
+            max_depth=3,
+            min_samples_leaf=1,
+            random_state=config["random_state"],
+        ),
+        columnas_excluir=["puntaje"],
+    )
+
+    pesos_entrenamiento = compute_sample_weight(
+        class_weight="balanced",
+        y=y_train,
+    )
+
+    modelo_final.fit(
+        X_train,
+        y_train,
+        modelo__sample_weight=pesos_entrenamiento,
+    )
+
+    ruta_modelo.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    joblib.dump(
+        modelo_final,
+        ruta_modelo,
+    )
+
+    return modelo_final, ruta_modelo
 
 if __name__ == "__main__":
 
