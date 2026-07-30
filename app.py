@@ -4,7 +4,7 @@ import streamlit as st
 
 from src.cargar_datos import cargar_base, cargar_config
 from src.model_monitoring import generar_reporte_monitoreo
-
+from src.model_deploy import predecir_dataframe
 
 st.set_page_config(
     page_title="Proyecto Integrador M5",
@@ -38,6 +38,54 @@ def cargar_reporte_monitoreo():
 
     return reporte
 
+def leer_archivo_prediccion(archivo) -> pd.DataFrame:
+    """
+    Lee archivos Excel o CSV cargados desde Streamlit.
+    """
+
+    nombre_archivo = archivo.name.lower()
+
+    if nombre_archivo.endswith(".xlsx"):
+        return pd.read_excel(archivo)
+
+    if nombre_archivo.endswith(".csv"):
+        ultimo_error = None
+
+        for encoding in ("utf-8-sig", "utf-8", "latin-1"):
+            try:
+                archivo.seek(0)
+
+                datos = pd.read_csv(
+                    archivo,
+                    encoding=encoding,
+                )
+
+                # Algunos CSV utilizan punto y coma como separador.
+                if datos.shape[1] == 1:
+                    archivo.seek(0)
+
+                    datos_punto_coma = pd.read_csv(
+                        archivo,
+                        encoding=encoding,
+                        sep=";",
+                    )
+
+                    if datos_punto_coma.shape[1] > 1:
+                        datos = datos_punto_coma
+
+                return datos
+
+            except Exception as error:
+                ultimo_error = error
+
+        raise ValueError(
+            f"No se pudo leer el archivo CSV: {ultimo_error}"
+        )
+
+    raise ValueError(
+        "Formato no permitido. Utilice CSV o Excel XLSX."
+    )
+
 
 st.title("Proyecto Integrador M5")
 st.subheader("Predicción y monitoreo de pagos de créditos")
@@ -46,6 +94,88 @@ st.write(
     "Aplicación desarrollada para visualizar el modelo "
     "y monitorear posibles cambios en los datos."
 )
+
+st.header("Predicción por lotes")
+
+st.write(
+    "Cargue un archivo CSV o Excel con uno o varios créditos. "
+    "La aplicación aplicará el mismo pipeline utilizado por la API."
+)
+
+archivo_prediccion = st.file_uploader(
+    "Seleccione un archivo",
+    type=["csv", "xlsx"],
+    key="archivo_prediccion",
+)
+
+if archivo_prediccion is not None:
+    try:
+        datos_cargados = leer_archivo_prediccion(
+            archivo_prediccion
+        )
+
+        st.success(
+            f"Archivo cargado correctamente: "
+            f"{len(datos_cargados)} registros."
+        )
+
+        st.subheader("Vista previa del archivo")
+
+        st.dataframe(
+            datos_cargados.head(20),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        if st.button(
+            "Generar predicciones",
+            type="primary",
+        ):
+            with st.spinner(
+                "Procesando registros..."
+            ):
+                resultados_lote = predecir_dataframe(
+                    datos_cargados
+                )
+
+            st.session_state["resultados_lote"] = (
+                resultados_lote
+            )
+
+            st.success(
+                "Predicciones generadas correctamente."
+            )
+
+    except Exception as error:
+        st.error(
+            f"No se pudo leer el archivo: {error}"
+        )
+
+if "resultados_lote" in st.session_state:
+    resultados_lote = st.session_state[
+        "resultados_lote"
+    ]
+
+    st.subheader("Resultados de la predicción")
+
+    st.dataframe(
+        resultados_lote,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    archivo_resultados = resultados_lote.to_csv(
+        index=False
+    ).encode("utf-8-sig")
+
+    st.download_button(
+        label="Descargar resultados en CSV",
+        data=archivo_resultados,
+        file_name="predicciones_creditos.csv",
+        mime="text/csv",
+    )
+
+st.divider()
 
 reporte = cargar_reporte_monitoreo()
 
