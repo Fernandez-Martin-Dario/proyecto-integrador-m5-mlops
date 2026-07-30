@@ -563,6 +563,44 @@ La aplicación queda disponible localmente en:
 http://localhost:8501
 ```
 
+### Predicción por lotes desde archivos
+
+La aplicación Streamlit permite cargar archivos con múltiples créditos y generar predicciones por lotes utilizando el mismo pipeline entrenado y serializado que consume la API.
+
+Los formatos admitidos son:
+
+- CSV (`.csv`).
+- Excel (`.xlsx`).
+
+El archivo debe contener las variables utilizadas por el modelo. La columna objetivo `Pago_atiempo` y la variable excluida `puntaje` no son necesarias para realizar nuevas predicciones.
+
+Una vez cargado el archivo, la aplicación:
+
+1. valida que estén presentes las columnas obligatorias;
+2. convierte y valida los tipos de datos;
+3. aplica la misma ingeniería de características utilizada durante el entrenamiento;
+4. genera una predicción para cada registro;
+5. calcula las probabilidades correspondientes a las clases `0` y `1`;
+6. permite descargar los resultados en formato CSV.
+
+El archivo descargado conserva las columnas originales y agrega:
+
+- `prediccion`;
+- `significado`;
+- `probabilidad_clase_0`;
+- `probabilidad_clase_1`.
+
+Para utilizar esta funcionalidad:
+
+1. ejecutar la aplicación Streamlit;
+2. ingresar en la sección **Predicción por lotes**;
+3. cargar un archivo CSV o Excel;
+4. revisar la vista previa;
+5. presionar **Generar predicciones**;
+6. descargar el archivo resultante mediante el botón **Descargar resultados en CSV**.
+
+Esta implementación reutiliza el pipeline existente y no requiere volver a entrenar el modelo para procesar nuevos registros.
+
 ## API de predicción con FastAPI
 
 La API de inferencia se encuentra en `src/model_deploy.py` y utiliza FastAPI para exponer el pipeline final como un servicio HTTP.
@@ -866,14 +904,15 @@ La rama `main` recibe únicamente versiones completas y estables.
 
 Versiones definidas:
 
-| Versión  | Alcance                                                                                                              |
-|----------|----------------------------------------------------------------------------------------------------------------------|
-| `v1.0.0` | Avance 1: carga de datos y análisis exploratorio inicial.                                                            |
-| `v1.0.1` | Cambio administrativo de la rama principal de `master` a `main`.                                                     |
-| `v1.1.0` | Ingeniería de características y preprocesamiento.                                                                    |
-| `v1.2.0` | Entrenamiento, evaluación, optimización y selección del modelo final.                                                |
-| `v1.3.0` | Cierre del Avance 3: monitoreo, detección de data drift, aplicación Streamlit y documentación del proyecto.          |
+| Versión  | Alcance                                                                                                                      |
+|----------|------------------------------------------------------------------------------------------------------------------------------|
+| `v1.0.0` | Avance 1: carga de datos y análisis exploratorio inicial.                                                                    |
+| `v1.0.1` | Cambio administrativo de la rama principal de `master` a `main`.                                                             |
+| `v1.1.0` | Ingeniería de características y preprocesamiento.                                                                            |
+| `v1.2.0` | Entrenamiento, evaluación, optimización y selección del modelo final.                                                        |
+| `v1.3.0` | Cierre del Avance 3: monitoreo, detección de data drift, aplicación Streamlit y documentación del proyecto.                  |
 | `v1.4.0` | Cierre del Avance 4: serialización del modelo, API FastAPI, predicción individual y por lotes, Docker y documentación final. |
+| `v1.5.0` | Incorporación de carga de archivos CSV y Excel en Streamlit para predicción por lotes, validación de datos y descarga de resultados en CSV. |
 
 Cada tag se crea después de integrar y validar completamente su alcance en `main`.
 
