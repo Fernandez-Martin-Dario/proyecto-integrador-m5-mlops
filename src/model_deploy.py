@@ -86,6 +86,137 @@ def cargar_modelo():
 
 modelo = cargar_modelo()
 
+def predecir_dataframe(datos_entrada: pd.DataFrame) -> pd.DataFrame:
+    """
+    Valida un DataFrame y genera predicciones por lotes.
+
+    Devuelve los datos originales junto con la predicción,
+    su significado y las probabilidades de ambas clases.
+    """
+
+    if datos_entrada.empty:
+        raise ValueError("El archivo no contiene registros.")
+
+    campos_modelo = DatosCredito.model_fields
+    columnas_modelo = list(campos_modelo.keys())
+
+    columnas_obligatorias = [
+        nombre
+        for nombre, campo in campos_modelo.items()
+        if campo.is_required()
+    ]
+
+    columnas_faltantes = [
+        columna
+        for columna in columnas_obligatorias
+        if columna not in datos_entrada.columns
+    ]
+
+    if columnas_faltantes:
+        raise ValueError(
+            "Faltan columnas obligatorias: "
+            + ", ".join(columnas_faltantes)
+        )
+
+    datos_validacion = datos_entrada.copy()
+
+    if "fecha_prestamo" in datos_validacion.columns:
+        fechas_convertidas = pd.to_datetime(
+            datos_validacion["fecha_prestamo"],
+            errors="coerce",
+        )
+
+        if fechas_convertidas.isna().any():
+            raise ValueError(
+                "La columna fecha_prestamo contiene fechas inválidas."
+            )
+
+        datos_validacion["fecha_prestamo"] = (
+            fechas_convertidas.dt.date
+        )
+
+    # Las columnas opcionales que no estén presentes se completan con nulos.
+    for columna in columnas_modelo:
+        if columna not in datos_validacion.columns:
+            datos_validacion[columna] = None
+
+    # Solo se envían al modelo las variables que realmente necesita.
+    datos_validacion = datos_validacion[columnas_modelo].astype(object)
+    datos_validacion = datos_validacion.where(
+        pd.notna(datos_validacion),
+        None,
+    )
+
+    registros_validados = []
+    errores = []
+
+    for numero_fila, registro in enumerate(
+        datos_validacion.to_dict(orient="records"),
+        start=2,
+    ):
+        try:
+            registro_validado = DatosCredito(
+                **registro
+            ).model_dump(mode="json")
+
+            registros_validados.append(registro_validado)
+
+        except Exception as error:
+            errores.append(
+                f"Fila {numero_fila}: {error}"
+            )
+
+            if len(errores) >= 5:
+                break
+
+    if errores:
+        raise ValueError(
+            "Se encontraron datos inválidos. "
+            + " | ".join(errores)
+        )
+
+    datos_modelo = pd.DataFrame(registros_validados)
+
+    datos_transformados = aplicar_feature_engineering(
+        datos_modelo
+    )
+
+    predicciones = modelo.predict(datos_transformados)
+    probabilidades = modelo.predict_proba(datos_transformados)
+
+    clases = [
+        int(clase)
+        for clase in modelo.classes_
+    ]
+
+    indice_clase_0 = clases.index(0)
+    indice_clase_1 = clases.index(1)
+
+    resultados = datos_entrada.copy()
+
+    resultados["prediccion"] = [
+        int(prediccion)
+        for prediccion in predicciones
+    ]
+
+    resultados["significado"] = [
+        (
+            "Pagará a tiempo"
+            if int(prediccion) == 1
+            else "No pagará a tiempo"
+        )
+        for prediccion in predicciones
+    ]
+
+    resultados["probabilidad_clase_0"] = (
+        probabilidades[:, indice_clase_0]
+    )
+
+    resultados["probabilidad_clase_1"] = (
+        probabilidades[:, indice_clase_1]
+    )
+
+    return resultados
 
 @app.get("/")
 def estado_api() -> dict:
